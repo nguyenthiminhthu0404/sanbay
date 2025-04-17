@@ -14,11 +14,15 @@
         <link rel="stylesheet" href="css/MarkerCluster.css">
         <link rel="stylesheet" href="css/MarkerCluster.Default.css">
         <link rel="stylesheet" href="css/leaflet-search.css">
+        <link rel="stylesheet" href="css/filter.css">
+<link rel="stylesheet" href="css/nouislider.min.css">
         <link rel="stylesheet" href="css/leaflet-control-geocoder.Geocoder.css">
         <style>
-        #map {
-            width: 1236px;
-            height: 666px;
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
         }
         </style>
         <title></title>
@@ -40,6 +44,9 @@
         <script src="js/leaflet-control-geocoder.Geocoder.js"></script>
         <script src="js/leaflet.markercluster.js"></script>
         <script src="js/leaflet-search.js"></script>
+        <script src="js/tailDT.js"></script>
+<script src="js/nouislider.min.js"></script>
+<script src="js/wNumb.js"></script>
         <script src="data/Tnsnbay_1.js"></script>
         <script src="data/ne_10m_airports_2.js"></script>
         <script>
@@ -61,7 +68,7 @@
         }
         var map = L.map('map', {
             zoomControl:false, maxZoom:28, minZoom:1
-        }).fitBounds([[-108.96928124328596,-178.86845833978873],[91.22490587215128,193.1791725343823]]);
+        }).fitBounds([[-189.16755499736172,-229.51999965815236],[11.02663211807554,142.52763121601868]]);
         var hash = new L.Hash(map);
         map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
         var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
@@ -14606,8 +14613,12 @@
                 return L.circleMarker(latlng, style_ne_10m_airports_2_0(feature));
             },
         });
+        var cluster_ne_10m_airports_2 = new L.MarkerClusterGroup({showCoverageOnHover: false,
+            spiderfyDistanceMultiplier: 2});
+        cluster_ne_10m_airports_2.addLayer(layer_ne_10m_airports_2);
+
         bounds_group.addLayer(layer_ne_10m_airports_2);
-        map.addLayer(layer_ne_10m_airports_2);
+        cluster_ne_10m_airports_2.addTo(map);
         var osmGeocoder = new L.Control.Geocoder({
             collapsed: true,
             position: 'topleft',
@@ -14620,12 +14631,1073 @@
         .title += 'Search for a place';
         setBounds();
         map.addControl(new L.Control.Search({
-            layer: layer_ne_10m_airports_2,
+            layer: cluster_ne_10m_airports_2,
             initial: false,
             hideMarkerOnCollapse: true,
-            propertyName: 'country'}));
+            propertyName: 'name'}));
         document.getElementsByClassName('search-button')[0].className +=
          ' fa fa-binoculars';
+        var mapDiv = document.getElementById('map');
+        var row = document.createElement('div');
+        row.className="row";
+        row.id="all";
+        row.style.height = "100%";
+        var col1 = document.createElement('div');
+        col1.className="col9";
+        col1.id = "mapWindow";
+        col1.style.height = "99%";
+        col1.style.width = "80%";
+        col1.style.display = "inline-block";
+        var col2 = document.createElement('div');
+        col2.className="col3";
+        col2.id = "menu";
+        col2.style.display = "inline-block";
+        mapDiv.parentNode.insertBefore(row, mapDiv);
+        document.getElementById("all").appendChild(col1);
+        document.getElementById("all").appendChild(col2);
+        col1.appendChild(mapDiv)
+        var Filters = {"natlscale": "real","name": "str"};
+        function filterFunc() {
+          map.eachLayer(function(lyr){
+          if ("options" in lyr && "dataVar" in lyr["options"]){
+            features = this[lyr["options"]["dataVar"]].features.slice(0);
+            try{
+              for (key in Filters){
+                keyS = key.replace(/[^a-zA-Z0-9_]/g, "")
+                if (Filters[key] == "str" || Filters[key] == "bool"){
+                  var selection = [];
+                  var options = document.getElementById("sel_" + keyS).options
+                  for (var i=0; i < options.length; i++) {
+                    if (options[i].selected) selection.push(options[i].value);
+                  }
+                    try{
+                      if (key in features[0].properties){
+                        for (i = features.length - 1;
+                          i >= 0; --i){
+                          if (selection.indexOf(
+                          features[i].properties[key])<0
+                          && selection.length>0) {
+                          features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                  }
+                }
+                if (Filters[key] == "int"){
+                  sliderVals =  document.getElementById(
+                    "div_" + keyS).noUiSlider.get();
+                  try{
+                    if (key in features[0].properties){
+                    for (i = features.length - 1; i >= 0; --i){
+                      if (parseInt(features[i].properties[key])
+                          < sliderVals[0]
+                          || parseInt(features[i].properties[key])
+                          > sliderVals[1]){
+                            features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                    }
+                  }
+                if (Filters[key] == "real"){
+                  sliderVals =  document.getElementById(
+                    "div_" + keyS).noUiSlider.get();
+                  try{
+                    if (key in features[0].properties){
+                    for (i = features.length - 1; i >= 0; --i){
+                      if (features[i].properties[key]
+                          < sliderVals[0]
+                          || features[i].properties[key]
+                          > sliderVals[1]){
+                            features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                    }
+                  }
+                if (Filters[key] == "date"
+                  || Filters[key] == "datetime"
+                  || Filters[key] == "time"){
+                  try{
+                    if (key in features[0].properties){
+                      HTMLkey = key.replace(/[&\/\\#,+()$~%.'":*?<>{} ]/g, '');
+                      startdate = document.getElementById("dat_" +
+                        HTMLkey + "_date1").value.replace(" ", "T");
+                      enddate = document.getElementById("dat_" +
+                        HTMLkey + "_date2").value.replace(" ", "T");
+                      for (i = features.length - 1; i >= 0; --i){
+                        if (features[i].properties[key] < startdate
+                          || features[i].properties[key] > enddate){
+                          features.splice(i,1);
+                        }
+                      }
+                    }
+                  } catch(err){
+                  }
+                }
+              }
+            } catch(err){
+            }
+          this[lyr["options"]["layerName"]].clearLayers();
+          this[lyr["options"]["layerName"]].addData(features);
+          }
+          })
+        }
+            document.getElementById("menu").appendChild(
+                document.createElement("div"));
+            var div_natlscale = document.createElement("div");
+            div_natlscale.id = "div_natlscale";
+            div_natlscale.className = "slider";
+            document.getElementById("menu").appendChild(div_natlscale);
+            var lab_natlscale = document.createElement('div');
+            lab_natlscale.innerHTML  = 'natlscale: <span id="val_natlscale"></span>';
+            lab_natlscale.className = 'filterlabel';
+            document.getElementById("menu").appendChild(lab_natlscale);
+            var reset_natlscale = document.createElement('div');
+            reset_natlscale.innerHTML = 'clear filter';
+            reset_natlscale.className = 'filterlabel';
+            lab_natlscale.className = 'filterlabel';
+            reset_natlscale.onclick = function() {
+                sel_natlscale.noUiSlider.reset();
+            };
+            document.getElementById("menu").appendChild(reset_natlscale);
+            var sel_natlscale = document.getElementById('div_natlscale');
+            noUiSlider.create(sel_natlscale, {
+                connect: true,
+                start: [8.0, 150.0],
+                range: {
+                min: 8.0,
+                max: 150.0
+                }
+            });
+            sel_natlscale.noUiSlider.on('update', function (values) {
+            val_natlscale = document.getElementById('val_natlscale');
+            val_natlscale.innerHTML = values.join(' - ');
+                filterFunc()
+            });
+            document.getElementById("menu").appendChild(
+                document.createElement("div"));
+            var div_name = document.createElement('div');
+            div_name.id = "div_name";
+            div_name.className= "filterselect";
+            document.getElementById("menu").appendChild(div_name);
+            sel_name = document.createElement('select');
+            sel_name.multiple = true;
+            sel_name.size = 10;
+            sel_name.id = "sel_name";
+            var name_options_str = "<option value='' unselected></option>";
+            sel_name.onchange = function(){filterFunc()};
+            name_options_str  += '<option value="Aba Tenna D. Yilma Int&apos;l">Aba Tenna D. Yilma Int&apos;l</option>';
+            name_options_str  += '<option value="Abdul Rachman Saleh">Abdul Rachman Saleh</option>';
+            name_options_str  += '<option value="Abidjan Port Bouet">Abidjan Port Bouet</option>';
+            name_options_str  += '<option value="Abu Dhabi Int&apos;l">Abu Dhabi Int&apos;l</option>';
+            name_options_str  += '<option value="Abuja Int&apos;l">Abuja Int&apos;l</option>';
+            name_options_str  += '<option value="Achmad Yani">Achmad Yani</option>';
+            name_options_str  += '<option value="Adampur">Adampur</option>';
+            name_options_str  += '<option value="Adelaide Int&apos;l">Adelaide Int&apos;l</option>';
+            name_options_str  += '<option value="Aden Adde Int&apos;l">Aden Adde Int&apos;l</option>';
+            name_options_str  += '<option value="Aden Int&apos;l">Aden Int&apos;l</option>';
+            name_options_str  += '<option value="Adnan Menderes">Adnan Menderes</option>';
+            name_options_str  += '<option value="Aeroport Tunis">Aeroport Tunis</option>';
+            name_options_str  += '<option value="Aeroportul National Bucuresti-Baneasa">Aeroportul National Bucuresti-Baneasa</option>';
+            name_options_str  += '<option value="Afonso Pena Int&apos;l">Afonso Pena Int&apos;l</option>';
+            name_options_str  += '<option value="Agra">Agra</option>';
+            name_options_str  += '<option value="Ahwaz">Ahwaz</option>';
+            name_options_str  += '<option value="Albany Int&apos;l">Albany Int&apos;l</option>';
+            name_options_str  += '<option value="Albenga">Albenga</option>';
+            name_options_str  += '<option value="Albuquerque Int&apos;l">Albuquerque Int&apos;l</option>';
+            name_options_str  += '<option value="Aleppo Int&apos;l">Aleppo Int&apos;l</option>';
+            name_options_str  += '<option value="Alfonso Bonilla Aragón Int&apos;l">Alfonso Bonilla Aragón Int&apos;l</option>';
+            name_options_str  += '<option value="Alicante">Alicante</option>';
+            name_options_str  += '<option value="Alice Springs">Alice Springs</option>';
+            name_options_str  += '<option value="Allahabad">Allahabad</option>';
+            name_options_str  += '<option value="Allama Iqbal Int&apos;l">Allama Iqbal Int&apos;l</option>';
+            name_options_str  += '<option value="Alma Ata N.W.">Alma Ata N.W.</option>';
+            name_options_str  += '<option value="Almaty Int&apos;l">Almaty Int&apos;l</option>';
+            name_options_str  += '<option value="Almeria">Almeria</option>';
+            name_options_str  += '<option value="Amarillo Int&apos;l">Amarillo Int&apos;l</option>';
+            name_options_str  += '<option value="Amausi Int&apos;l">Amausi Int&apos;l</option>';
+            name_options_str  += '<option value="Amilcar Cabral Int&apos;l">Amilcar Cabral Int&apos;l</option>';
+            name_options_str  += '<option value="Anchorage Int&apos;l">Anchorage Int&apos;l</option>';
+            name_options_str  += '<option value="Annemasse">Annemasse</option>';
+            name_options_str  += '<option value="Antalya">Antalya</option>';
+            name_options_str  += '<option value="Antananarivo Ivato">Antananarivo Ivato</option>';
+            name_options_str  += '<option value="Antonio B. Won Pat Int&apos;l">Antonio B. Won Pat Int&apos;l</option>';
+            name_options_str  += '<option value="Antonio Maceo">Antonio Maceo</option>';
+            name_options_str  += '<option value="Arcata-Eureka">Arcata-Eureka</option>';
+            name_options_str  += '<option value="Arkhangelsk-Talagi">Arkhangelsk-Talagi</option>';
+            name_options_str  += '<option value="Arlanda">Arlanda</option>';
+            name_options_str  += '<option value="Arturo Merino Benitez Int&apos;l">Arturo Merino Benitez Int&apos;l</option>';
+            name_options_str  += '<option value="Ashkhabad Northwest">Ashkhabad Northwest</option>';
+            name_options_str  += '<option value="Astana Int&apos;l">Astana Int&apos;l</option>';
+            name_options_str  += '<option value="Astor Piazzolla Int&apos;l">Astor Piazzolla Int&apos;l</option>';
+            name_options_str  += '<option value="Aswan Int&apos;l">Aswan Int&apos;l</option>';
+            name_options_str  += '<option value="Asyut">Asyut</option>';
+            name_options_str  += '<option value="Atar Int&apos;l">Atar Int&apos;l</option>';
+            name_options_str  += '<option value="Atatürk Hava Limani">Atatürk Hava Limani</option>';
+            name_options_str  += '<option value="Auckland Int&apos;l">Auckland Int&apos;l</option>';
+            name_options_str  += '<option value="Augusto Cesar Sandino Int&apos;l">Augusto Cesar Sandino Int&apos;l</option>';
+            name_options_str  += '<option value="Augusto Severo Int&apos;l">Augusto Severo Int&apos;l</option>';
+            name_options_str  += '<option value="Aurangabad">Aurangabad</option>';
+            name_options_str  += '<option value="Austin-Bergstrom Int&apos;l">Austin-Bergstrom Int&apos;l</option>';
+            name_options_str  += '<option value="Bacha Khan Int&apos;l">Bacha Khan Int&apos;l</option>';
+            name_options_str  += '<option value="Baghdad Int&apos;l">Baghdad Int&apos;l</option>';
+            name_options_str  += '<option value="Bahrain Int&apos;l">Bahrain Int&apos;l</option>';
+            name_options_str  += '<option value="Baikonur Cosmodrome">Baikonur Cosmodrome</option>';
+            name_options_str  += '<option value="Bairagarh">Bairagarh</option>';
+            name_options_str  += '<option value="Bali Int&apos;l">Bali Int&apos;l</option>';
+            name_options_str  += '<option value="Baltimore-Washington Int&apos;l Thurgood Marshall">Baltimore-Washington Int&apos;l Thurgood Marshall</option>';
+            name_options_str  += '<option value="Bamako Sénou">Bamako Sénou</option>';
+            name_options_str  += '<option value="Bandar Abbass Int&apos;l">Bandar Abbass Int&apos;l</option>';
+            name_options_str  += '<option value="Bangui M&apos;Poko Int&apos;l">Bangui M&apos;Poko Int&apos;l</option>';
+            name_options_str  += '<option value="Barcelona">Barcelona</option>';
+            name_options_str  += '<option value="Bareilly">Bareilly</option>';
+            name_options_str  += '<option value="Barnaul">Barnaul</option>';
+            name_options_str  += '<option value="Basrah Int&apos;l">Basrah Int&apos;l</option>';
+            name_options_str  += '<option value="Bassel Al-Assad Int&apos;l">Bassel Al-Assad Int&apos;l</option>';
+            name_options_str  += '<option value="Baton Rouge Metro">Baton Rouge Metro</option>';
+            name_options_str  += '<option value="Bauerfield Int&apos;l">Bauerfield Int&apos;l</option>';
+            name_options_str  += '<option value="Beijing Capital">Beijing Capital</option>';
+            name_options_str  += '<option value="Beirut Int&apos;l">Beirut Int&apos;l</option>';
+            name_options_str  += '<option value="Belfast Int&apos;l">Belfast Int&apos;l</option>';
+            name_options_str  += '<option value="Ben Gurion">Ben Gurion</option>';
+            name_options_str  += '<option value="Benazir Bhutto Int&apos;l">Benazir Bhutto Int&apos;l</option>';
+            name_options_str  += '<option value="Bengaluru Int&apos;l">Bengaluru Int&apos;l</option>';
+            name_options_str  += '<option value="Benin">Benin</option>';
+            name_options_str  += '<option value="Benina Int&apos;l">Benina Int&apos;l</option>';
+            name_options_str  += '<option value="Bergen Flesland">Bergen Flesland</option>';
+            name_options_str  += '<option value="Berlin-Tegel Int&apos;l">Berlin-Tegel Int&apos;l</option>';
+            name_options_str  += '<option value="Bermuda Int&apos;l">Bermuda Int&apos;l</option>';
+            name_options_str  += '<option value="Bethel">Bethel</option>';
+            name_options_str  += '<option value="Biju Patnaik">Biju Patnaik</option>';
+            name_options_str  += '<option value="Bilbao">Bilbao</option>';
+            name_options_str  += '<option value="Birmingham Int&apos;l">Birmingham Int&apos;l</option>';
+            name_options_str  += '<option value="Birsa Munda">Birsa Munda</option>';
+            name_options_str  += '<option value="Bismarck Muni.">Bismarck Muni.</option>';
+            name_options_str  += '<option value="Blue Grass">Blue Grass</option>';
+            name_options_str  += '<option value="Boa Vista Int&apos;l">Boa Vista Int&apos;l</option>';
+            name_options_str  += '<option value="Boise Air Terminal">Boise Air Terminal</option>';
+            name_options_str  += '<option value="Bole Int&apos;l">Bole Int&apos;l</option>';
+            name_options_str  += '<option value="Bolshesavino">Bolshesavino</option>';
+            name_options_str  += '<option value="Bonriki Int&apos;l">Bonriki Int&apos;l</option>';
+            name_options_str  += '<option value="Bordeaux">Bordeaux</option>';
+            name_options_str  += '<option value="Borg El Arab Int&apos;l">Borg El Arab Int&apos;l</option>';
+            name_options_str  += '<option value="Boryspil Int&apos;l">Boryspil Int&apos;l</option>';
+            name_options_str  += '<option value="Bouaké">Bouaké</option>';
+            name_options_str  += '<option value="Bourgas">Bourgas</option>';
+            name_options_str  += '<option value="Bradley Int&apos;l">Bradley Int&apos;l</option>';
+            name_options_str  += '<option value="Brandon">Brandon</option>';
+            name_options_str  += '<option value="Bratislava-M.R. Štefánik">Bratislava-M.R. Štefánik</option>';
+            name_options_str  += '<option value="Bremen">Bremen</option>';
+            name_options_str  += '<option value="Brisbane Int&apos;l">Brisbane Int&apos;l</option>';
+            name_options_str  += '<option value="Bristol Int&apos;l">Bristol Int&apos;l</option>';
+            name_options_str  += '<option value="Broken Hill">Broken Hill</option>';
+            name_options_str  += '<option value="Bromma">Bromma</option>';
+            name_options_str  += '<option value="Broome Int&apos;l">Broome Int&apos;l</option>';
+            name_options_str  += '<option value="Brownsville-South Padre Island Int&apos;l">Brownsville-South Padre Island Int&apos;l</option>';
+            name_options_str  += '<option value="Brunei Int&apos;l">Brunei Int&apos;l</option>';
+            name_options_str  += '<option value="Brussels">Brussels</option>';
+            name_options_str  += '<option value="Bujumbura Int&apos;l">Bujumbura Int&apos;l</option>';
+            name_options_str  += '<option value="Bulawayo">Bulawayo</option>';
+            name_options_str  += '<option value="Burlington Int&apos;l">Burlington Int&apos;l</option>';
+            name_options_str  += '<option value="Burnpur">Burnpur</option>';
+            name_options_str  += '<option value="CFB Edmonton">CFB Edmonton</option>';
+            name_options_str  += '<option value="Cabo Frio Int&apos;l">Cabo Frio Int&apos;l</option>';
+            name_options_str  += '<option value="Cairns Int&apos;l">Cairns Int&apos;l</option>';
+            name_options_str  += '<option value="Cairo Int&apos;l">Cairo Int&apos;l</option>';
+            name_options_str  += '<option value="Calgary Int&apos;l">Calgary Int&apos;l</option>';
+            name_options_str  += '<option value="Calicut Int&apos;l">Calicut Int&apos;l</option>';
+            name_options_str  += '<option value="Campo Grande Int&apos;l">Campo Grande Int&apos;l</option>';
+            name_options_str  += '<option value="Canberra Int&apos;l">Canberra Int&apos;l</option>';
+            name_options_str  += '<option value="Cancún">Cancún</option>';
+            name_options_str  += '<option value="Cape Town Int&apos;l">Cape Town Int&apos;l</option>';
+            name_options_str  += '<option value="Cardiff">Cardiff</option>';
+            name_options_str  += '<option value="Carlos Ibáñez de Campo Int&apos;l">Carlos Ibáñez de Campo Int&apos;l</option>';
+            name_options_str  += '<option value="Carrasco Int&apos;l">Carrasco Int&apos;l</option>';
+            name_options_str  += '<option value="Carriel Sur Int&apos;l">Carriel Sur Int&apos;l</option>';
+            name_options_str  += '<option value="Casablanca-Anfa">Casablanca-Anfa</option>';
+            name_options_str  += '<option value="Cascais">Cascais</option>';
+            name_options_str  += '<option value="Casper/Natrona County Int&apos;l">Casper/Natrona County Int&apos;l</option>';
+            name_options_str  += '<option value="Cassidy Int&apos;l">Cassidy Int&apos;l</option>';
+            name_options_str  += '<option value="Catania Fontanarossa">Catania Fontanarossa</option>';
+            name_options_str  += '<option value="Cayenne – Rochambeau">Cayenne – Rochambeau</option>';
+            name_options_str  += '<option value="Centre Spatial Guyanais">Centre Spatial Guyanais</option>';
+            name_options_str  += '<option value="Cerro Moreno Int&apos;l">Cerro Moreno Int&apos;l</option>';
+            name_options_str  += '<option value="Chacalluta Int&apos;l">Chacalluta Int&apos;l</option>';
+            name_options_str  += '<option value="Chandigarh Int&apos;l">Chandigarh Int&apos;l</option>';
+            name_options_str  += '<option value="Changchun Longjia Int&apos;l">Changchun Longjia Int&apos;l</option>';
+            name_options_str  += '<option value="Changsha Huanghua Int&apos;l">Changsha Huanghua Int&apos;l</option>';
+            name_options_str  += '<option value="Charles de Gaulle Int&apos;l">Charles de Gaulle Int&apos;l</option>';
+            name_options_str  += '<option value="Charleston Int&apos;l">Charleston Int&apos;l</option>';
+            name_options_str  += '<option value="Charlottetown">Charlottetown</option>';
+            name_options_str  += '<option value="Cheddi Jagan Int&apos;l">Cheddi Jagan Int&apos;l</option>';
+            name_options_str  += '<option value="Chelyabinsk">Chelyabinsk</option>';
+            name_options_str  += '<option value="Chengdushuang Liu">Chengdushuang Liu</option>';
+            name_options_str  += '<option value="Chennai Int&apos;l">Chennai Int&apos;l</option>';
+            name_options_str  += '<option value="Cheongju Int&apos;l">Cheongju Int&apos;l</option>';
+            name_options_str  += '<option value="Chetumal Int&apos;l">Chetumal Int&apos;l</option>';
+            name_options_str  += '<option value="Chhatrapati Shivaji Int&apos;l">Chhatrapati Shivaji Int&apos;l</option>';
+            name_options_str  += '<option value="Chiang Mai Int&apos;l">Chiang Mai Int&apos;l</option>';
+            name_options_str  += '<option value="Chicago Midway Int&apos;l">Chicago Midway Int&apos;l</option>';
+            name_options_str  += '<option value="Chicago O&apos;Hare Int&apos;l">Chicago O&apos;Hare Int&apos;l</option>';
+            name_options_str  += '<option value="Chileka Int&apos;l">Chileka Int&apos;l</option>';
+            name_options_str  += '<option value="Chinggis Khaan Int&apos;l">Chinggis Khaan Int&apos;l</option>';
+            name_options_str  += '<option value="Chittagong">Chittagong</option>';
+            name_options_str  += '<option value="Chongqing Jiangbei Int&apos;l">Chongqing Jiangbei Int&apos;l</option>';
+            name_options_str  += '<option value="Christchurch Int&apos;l">Christchurch Int&apos;l</option>';
+            name_options_str  += '<option value="Chubu Centrair Int&apos;l">Chubu Centrair Int&apos;l</option>';
+            name_options_str  += '<option value="Churchill">Churchill</option>';
+            name_options_str  += '<option value="Chuuk Int&apos;l">Chuuk Int&apos;l</option>';
+            name_options_str  += '<option value="Châlons Vatry">Châlons Vatry</option>';
+            name_options_str  += '<option value="Cibao Int&apos;l">Cibao Int&apos;l</option>';
+            name_options_str  += '<option value="City of Colorado Springs">City of Colorado Springs</option>';
+            name_options_str  += '<option value="Ciudad Juarez Int&apos;l">Ciudad Juarez Int&apos;l</option>';
+            name_options_str  += '<option value="Clark Int&apos;l">Clark Int&apos;l</option>';
+            name_options_str  += '<option value="Clinton National">Clinton National</option>';
+            name_options_str  += '<option value="Cochin Int&apos;l">Cochin Int&apos;l</option>';
+            name_options_str  += '<option value="Cocos (Keeling) Islands">Cocos (Keeling) Islands</option>';
+            name_options_str  += '<option value="Coimbatore">Coimbatore</option>';
+            name_options_str  += '<option value="Cologne/Bonn">Cologne/Bonn</option>';
+            name_options_str  += '<option value="Columbia Metro">Columbia Metro</option>';
+            name_options_str  += '<option value="Com. Armando Tola Int&apos;l">Com. Armando Tola Int&apos;l</option>';
+            name_options_str  += '<option value="Conakry">Conakry</option>';
+            name_options_str  += '<option value="Congonhas Int&apos;l">Congonhas Int&apos;l</option>';
+            name_options_str  += '<option value="Copenhagen">Copenhagen</option>';
+            name_options_str  += '<option value="Corfu Int&apos;l (Ioannis Kapodistrias)">Corfu Int&apos;l (Ioannis Kapodistrias)</option>';
+            name_options_str  += '<option value="Cork">Cork</option>';
+            name_options_str  += '<option value="Corpus Christi Int&apos;l">Corpus Christi Int&apos;l</option>';
+            name_options_str  += '<option value="Corumbá Int&apos;l">Corumbá Int&apos;l</option>';
+            name_options_str  += '<option value="Cotonou Cadjehon">Cotonou Cadjehon</option>';
+            name_options_str  += '<option value="Cozumel Int&apos;l">Cozumel Int&apos;l</option>';
+            name_options_str  += '<option value="Da Nang">Da Nang</option>';
+            name_options_str  += '<option value="Daegu Int&apos;l">Daegu Int&apos;l</option>';
+            name_options_str  += '<option value="Dalian Zhoushuizi Int&apos;l">Dalian Zhoushuizi Int&apos;l</option>';
+            name_options_str  += '<option value="Dallas Love Field">Dallas Love Field</option>';
+            name_options_str  += '<option value="Dallas-Ft. Worth Int&apos;l">Dallas-Ft. Worth Int&apos;l</option>';
+            name_options_str  += '<option value="Damascus Int&apos;l">Damascus Int&apos;l</option>';
+            name_options_str  += '<option value="Dane Cty. Reg. (Truax Field)">Dane Cty. Reg. (Truax Field)</option>';
+            name_options_str  += '<option value="Darwin Int&apos;l">Darwin Int&apos;l</option>';
+            name_options_str  += '<option value="Dawson Cr.">Dawson Cr.</option>';
+            name_options_str  += '<option value="De Las Américas Int&apos;l">De Las Américas Int&apos;l</option>';
+            name_options_str  += '<option value="Deadhorse">Deadhorse</option>';
+            name_options_str  += '<option value="Del Bajio Int&apos;l">Del Bajio Int&apos;l</option>';
+            name_options_str  += '<option value="Del Norte Int&apos;l">Del Norte Int&apos;l</option>';
+            name_options_str  += '<option value="Denver Int&apos;l">Denver Int&apos;l</option>';
+            name_options_str  += '<option value="Deputado Luis Eduardo Magalhaes Int&apos;l">Deputado Luis Eduardo Magalhaes Int&apos;l</option>';
+            name_options_str  += '<option value="Des Moines Int&apos;l">Des Moines Int&apos;l</option>';
+            name_options_str  += '<option value="Detroit City">Detroit City</option>';
+            name_options_str  += '<option value="Detroit Metro">Detroit Metro</option>';
+            name_options_str  += '<option value="Deurne">Deurne</option>';
+            name_options_str  += '<option value="Devi Ahilyabai Holkar Int&apos;l">Devi Ahilyabai Holkar Int&apos;l</option>';
+            name_options_str  += '<option value="Dhamial">Dhamial</option>';
+            name_options_str  += '<option value="Diego Aracena Int&apos;l">Diego Aracena Int&apos;l</option>';
+            name_options_str  += '<option value="Djibouti-Ambouli Int&apos;l">Djibouti-Ambouli Int&apos;l</option>';
+            name_options_str  += '<option value="Doha Int&apos;l">Doha Int&apos;l</option>';
+            name_options_str  += '<option value="Don Miguel Hidalgo Int&apos;l">Don Miguel Hidalgo Int&apos;l</option>';
+            name_options_str  += '<option value="Don Muang Int&apos;l">Don Muang Int&apos;l</option>';
+            name_options_str  += '<option value="Donetsk">Donetsk</option>';
+            name_options_str  += '<option value="Douglas Int&apos;l">Douglas Int&apos;l</option>';
+            name_options_str  += '<option value="Dr. Babasaheb Ambedkar Int&apos;l">Dr. Babasaheb Ambedkar Int&apos;l</option>';
+            name_options_str  += '<option value="Dresden">Dresden</option>';
+            name_options_str  += '<option value="Dubai Int&apos;l">Dubai Int&apos;l</option>';
+            name_options_str  += '<option value="Dubbo">Dubbo</option>';
+            name_options_str  += '<option value="Dublin">Dublin</option>';
+            name_options_str  += '<option value="Dulles Int&apos;l">Dulles Int&apos;l</option>';
+            name_options_str  += '<option value="Dunedin Int&apos;l">Dunedin Int&apos;l</option>';
+            name_options_str  += '<option value="Durango Int&apos;l">Durango Int&apos;l</option>';
+            name_options_str  += '<option value="Durham Int&apos;l">Durham Int&apos;l</option>';
+            name_options_str  += '<option value="Dzaoudzi Pamanzi Int&apos;l">Dzaoudzi Pamanzi Int&apos;l</option>';
+            name_options_str  += '<option value="Düsseldorf Int&apos;l">Düsseldorf Int&apos;l</option>';
+            name_options_str  += '<option value="Edinburgh Int&apos;l">Edinburgh Int&apos;l</option>';
+            name_options_str  += '<option value="Edmonton City Centre">Edmonton City Centre</option>';
+            name_options_str  += '<option value="Edmonton Int&apos;l">Edmonton Int&apos;l</option>';
+            name_options_str  += '<option value="Eduardo Gomes Int&apos;l">Eduardo Gomes Int&apos;l</option>';
+            name_options_str  += '<option value="El Alto Int&apos;l">El Alto Int&apos;l</option>';
+            name_options_str  += '<option value="El Paso Int&apos;l">El Paso Int&apos;l</option>';
+            name_options_str  += '<option value="El Plumerillo">El Plumerillo</option>';
+            name_options_str  += '<option value="El Salvador Int&apos;l">El Salvador Int&apos;l</option>';
+            name_options_str  += '<option value="El Tepual Int&apos;l">El Tepual Int&apos;l</option>';
+            name_options_str  += '<option value="Eldorado Int&apos;l">Eldorado Int&apos;l</option>';
+            name_options_str  += '<option value="Eldoret Int&apos;l">Eldoret Int&apos;l</option>';
+            name_options_str  += '<option value="Eleftherios Venizelos Int&apos;l">Eleftherios Venizelos Int&apos;l</option>';
+            name_options_str  += '<option value="Elko Reg.">Elko Reg.</option>';
+            name_options_str  += '<option value="Eloy Alfaro Int&apos;l">Eloy Alfaro Int&apos;l</option>';
+            name_options_str  += '<option value="Enrique Malek Int&apos;l">Enrique Malek Int&apos;l</option>';
+            name_options_str  += '<option value="Ensenada">Ensenada</option>';
+            name_options_str  += '<option value="Entebbe Int&apos;l">Entebbe Int&apos;l</option>';
+            name_options_str  += '<option value="Eppley Airfield">Eppley Airfield</option>';
+            name_options_str  += '<option value="Ernesto Cortissoz Int&apos;l">Ernesto Cortissoz Int&apos;l</option>';
+            name_options_str  += '<option value="Esenboğa Int&apos;l">Esenboğa Int&apos;l</option>';
+            name_options_str  += '<option value="Esfahan Int&apos;l">Esfahan Int&apos;l</option>';
+            name_options_str  += '<option value="Eurico de Aguiar Salles">Eurico de Aguiar Salles</option>';
+            name_options_str  += '<option value="Exuma Int&apos;l">Exuma Int&apos;l</option>';
+            name_options_str  += '<option value="Fairbanks Int&apos;l">Fairbanks Int&apos;l</option>';
+            name_options_str  += '<option value="Faisalabad Int&apos;l">Faisalabad Int&apos;l</option>';
+            name_options_str  += '<option value="Faleolo">Faleolo</option>';
+            name_options_str  += '<option value="Falls Int&apos;l">Falls Int&apos;l</option>';
+            name_options_str  += '<option value="Federal de Bachigualato Int&apos;l">Federal de Bachigualato Int&apos;l</option>';
+            name_options_str  += '<option value="Ferihegy">Ferihegy</option>';
+            name_options_str  += '<option value="Flagstaff Pulliam">Flagstaff Pulliam</option>';
+            name_options_str  += '<option value="Fort Lauderdale Hollywood Int&apos;l">Fort Lauderdale Hollywood Int&apos;l</option>';
+            name_options_str  += '<option value="Fort McMurray">Fort McMurray</option>';
+            name_options_str  += '<option value="Fort Smith">Fort Smith</option>';
+            name_options_str  += '<option value="Fort St. John (N. Peace)">Fort St. John (N. Peace)</option>';
+            name_options_str  += '<option value="Fort Worth Meacham Field">Fort Worth Meacham Field</option>';
+            name_options_str  += '<option value="Foz do Iguaçu Int&apos;l">Foz do Iguaçu Int&apos;l</option>';
+            name_options_str  += '<option value="Francisco Bangoy Int&apos;l">Francisco Bangoy Int&apos;l</option>';
+            name_options_str  += '<option value="Francisco Sa Carneiro">Francisco Sa Carneiro</option>';
+            name_options_str  += '<option value="Frankfurt Int&apos;l">Frankfurt Int&apos;l</option>';
+            name_options_str  += '<option value="Franz-Josef-Strauss">Franz-Josef-Strauss</option>';
+            name_options_str  += '<option value="Freeport Int&apos;l">Freeport Int&apos;l</option>';
+            name_options_str  += '<option value="Freetown Lungi">Freetown Lungi</option>';
+            name_options_str  += '<option value="Fresno Yosemite Int&apos;l">Fresno Yosemite Int&apos;l</option>';
+            name_options_str  += '<option value="Fua&apos;amotu Int&apos;l">Fua&apos;amotu Int&apos;l</option>';
+            name_options_str  += '<option value="Fukuoka">Fukuoka</option>';
+            name_options_str  += '<option value="Funafuti Int&apos;l">Funafuti Int&apos;l</option>';
+            name_options_str  += '<option value="Fuzhou Changle Int&apos;l">Fuzhou Changle Int&apos;l</option>';
+            name_options_str  += '<option value="Gander Int&apos;l">Gander Int&apos;l</option>';
+            name_options_str  += '<option value="Gandhinagar">Gandhinagar</option>';
+            name_options_str  += '<option value="Garoua Int&apos;l">Garoua Int&apos;l</option>';
+            name_options_str  += '<option value="Gary/Chicago Int&apos;l">Gary/Chicago Int&apos;l</option>';
+            name_options_str  += '<option value="Gaziantep Oğuzeli Int&apos;l">Gaziantep Oğuzeli Int&apos;l</option>';
+            name_options_str  += '<option value="Gdansk Lech Walesa">Gdansk Lech Walesa</option>';
+            name_options_str  += '<option value="Gen E L Logan Int&apos;l">Gen E L Logan Int&apos;l</option>';
+            name_options_str  += '<option value="Gen Francisco J Mina Int&apos;l">Gen Francisco J Mina Int&apos;l</option>';
+            name_options_str  += '<option value="Gen R.S. Taboada Int&apos;l">Gen R.S. Taboada Int&apos;l</option>';
+            name_options_str  += '<option value="Gen. Heriberto Jara Int&apos;l">Gen. Heriberto Jara Int&apos;l</option>';
+            name_options_str  += '<option value="Gen. Ignacio P. Garcia Int&apos;l">Gen. Ignacio P. Garcia Int&apos;l</option>';
+            name_options_str  += '<option value="Gen. José M. Yáñez Int&apos;l">Gen. José M. Yáñez Int&apos;l</option>';
+            name_options_str  += '<option value="Gen. Márquez de León Int&apos;l">Gen. Márquez de León Int&apos;l</option>';
+            name_options_str  += '<option value="Gen. Sevando Canales">Gen. Sevando Canales</option>';
+            name_options_str  += '<option value="General Abelardo L Rodriguez Int&apos;l">General Abelardo L Rodriguez Int&apos;l</option>';
+            name_options_str  += '<option value="General Juan N Alvarez Int&apos;l">General Juan N Alvarez Int&apos;l</option>';
+            name_options_str  += '<option value="General Mitchell Int&apos;l">General Mitchell Int&apos;l</option>';
+            name_options_str  += '<option value="General R F Villalobos Int&apos;l">General R F Villalobos Int&apos;l</option>';
+            name_options_str  += '<option value="General Rafael Buelna Int&apos;l">General Rafael Buelna Int&apos;l</option>';
+            name_options_str  += '<option value="Geneva">Geneva</option>';
+            name_options_str  += '<option value="George Bush Intercontinental">George Bush Intercontinental</option>';
+            name_options_str  += '<option value="Gerald R. Ford Int&apos;l">Gerald R. Ford Int&apos;l</option>';
+            name_options_str  += '<option value="Gerrard Smith">Gerrard Smith</option>';
+            name_options_str  += '<option value="Gibraltar">Gibraltar</option>';
+            name_options_str  += '<option value="Gilberto Freyre Int&apos;l">Gilberto Freyre Int&apos;l</option>';
+            name_options_str  += '<option value="Gimpo Int&apos;l">Gimpo Int&apos;l</option>';
+            name_options_str  += '<option value="Glasgow Int&apos;l">Glasgow Int&apos;l</option>';
+            name_options_str  += '<option value="Glasgow Prestwick">Glasgow Prestwick</option>';
+            name_options_str  += '<option value="Gob. Horacio Guzman Int&apos;l">Gob. Horacio Guzman Int&apos;l</option>';
+            name_options_str  += '<option value="Gold Coast">Gold Coast</option>';
+            name_options_str  += '<option value="Goloson Int&apos;l">Goloson Int&apos;l</option>';
+            name_options_str  += '<option value="Goma Int&apos;l">Goma Int&apos;l</option>';
+            name_options_str  += '<option value="Gosselies">Gosselies</option>';
+            name_options_str  += '<option value="Gothenburg">Gothenburg</option>';
+            name_options_str  += '<option value="Gov. Jorge Teixeira de Oliveira Int&apos;l">Gov. Jorge Teixeira de Oliveira Int&apos;l</option>';
+            name_options_str  += '<option value="Gran Canaria">Gran Canaria</option>';
+            name_options_str  += '<option value="Grantley Adams Int&apos;l">Grantley Adams Int&apos;l</option>';
+            name_options_str  += '<option value="Great Falls Int&apos;l">Great Falls Int&apos;l</option>';
+            name_options_str  += '<option value="Greater Buffalo Int&apos;l">Greater Buffalo Int&apos;l</option>';
+            name_options_str  += '<option value="Greater Cincinnati Int&apos;l">Greater Cincinnati Int&apos;l</option>';
+            name_options_str  += '<option value="Greater Moncton Int&apos;l">Greater Moncton Int&apos;l</option>';
+            name_options_str  += '<option value="Greater Pittsburgh Int&apos;l">Greater Pittsburgh Int&apos;l</option>';
+            name_options_str  += '<option value="Greater Rochester Int&apos;l">Greater Rochester Int&apos;l</option>';
+            name_options_str  += '<option value="Guangzhou Baiyun Int&apos;l">Guangzhou Baiyun Int&apos;l</option>';
+            name_options_str  += '<option value="Guaraní Int&apos;l">Guaraní Int&apos;l</option>';
+            name_options_str  += '<option value="Guilin Liangjiang Int&apos;l">Guilin Liangjiang Int&apos;l</option>';
+            name_options_str  += '<option value="Gumrak">Gumrak</option>';
+            name_options_str  += '<option value="Gwalior">Gwalior</option>';
+            name_options_str  += '<option value="Gwangju">Gwangju</option>';
+            name_options_str  += '<option value="H F Verwoerd">H F Verwoerd</option>';
+            name_options_str  += '<option value="Habib Bourguiba Int&apos;l">Habib Bourguiba Int&apos;l</option>';
+            name_options_str  += '<option value="Halifax Int&apos;l">Halifax Int&apos;l</option>';
+            name_options_str  += '<option value="Hamburg">Hamburg</option>';
+            name_options_str  += '<option value="Hamilton Int&apos;l">Hamilton Int&apos;l</option>';
+            name_options_str  += '<option value="Hangzhou Xiaoshan Int&apos;l">Hangzhou Xiaoshan Int&apos;l</option>';
+            name_options_str  += '<option value="Harare Int&apos;l">Harare Int&apos;l</option>';
+            name_options_str  += '<option value="Harbin Taiping">Harbin Taiping</option>';
+            name_options_str  += '<option value="Hartsfield-Jackson Atlanta Int&apos;l">Hartsfield-Jackson Atlanta Int&apos;l</option>';
+            name_options_str  += '<option value="Hat Yai Int&apos;l">Hat Yai Int&apos;l</option>';
+            name_options_str  += '<option value="Hato Int&apos;l">Hato Int&apos;l</option>';
+            name_options_str  += '<option value="Hector Int&apos;l">Hector Int&apos;l</option>';
+            name_options_str  += '<option value="Hefei-Luogang">Hefei-Luogang</option>';
+            name_options_str  += '<option value="Helena Reg.">Helena Reg.</option>';
+            name_options_str  += '<option value="Helsinki Vantaa">Helsinki Vantaa</option>';
+            name_options_str  += '<option value="Helsinki-Malmi">Helsinki-Malmi</option>';
+            name_options_str  += '<option value="Heraklion Int&apos;l">Heraklion Int&apos;l</option>';
+            name_options_str  += '<option value="Hercilio Luz Int&apos;l">Hercilio Luz Int&apos;l</option>';
+            name_options_str  += '<option value="Hermes Quijada Int&apos;l">Hermes Quijada Int&apos;l</option>';
+            name_options_str  += '<option value="Hewanorra Int&apos;l">Hewanorra Int&apos;l</option>';
+            name_options_str  += '<option value="Heydar Aliyev Int&apos;l">Heydar Aliyev Int&apos;l</option>';
+            name_options_str  += '<option value="Hilo Int&apos;l">Hilo Int&apos;l</option>';
+            name_options_str  += '<option value="Hindon Air Force Station">Hindon Air Force Station</option>';
+            name_options_str  += '<option value="Hiroshima-Nishi">Hiroshima-Nishi</option>';
+            name_options_str  += '<option value="Hobart Int&apos;l">Hobart Int&apos;l</option>';
+            name_options_str  += '<option value="Hodeidah Int&apos;l">Hodeidah Int&apos;l</option>';
+            name_options_str  += '<option value="Hohhot Baita Int&apos;l">Hohhot Baita Int&apos;l</option>';
+            name_options_str  += '<option value="Hong Kong Int&apos;l">Hong Kong Int&apos;l</option>';
+            name_options_str  += '<option value="Hongqiao">Hongqiao</option>';
+            name_options_str  += '<option value="Honiara Int&apos;l">Honiara Int&apos;l</option>';
+            name_options_str  += '<option value="Honolulu Int&apos;l">Honolulu Int&apos;l</option>';
+            name_options_str  += '<option value="Hopkins Int&apos;l">Hopkins Int&apos;l</option>';
+            name_options_str  += '<option value="Hotan">Hotan</option>';
+            name_options_str  += '<option value="Houari Boumediene">Houari Boumediene</option>';
+            name_options_str  += '<option value="Hsien Yang">Hsien Yang</option>';
+            name_options_str  += '<option value="Hubli">Hubli</option>';
+            name_options_str  += '<option value="Huntsville Int&apos;l">Huntsville Int&apos;l</option>';
+            name_options_str  += '<option value="Hurghada Int&apos;l">Hurghada Int&apos;l</option>';
+            name_options_str  += '<option value="Husein Sastranegara Int&apos;l">Husein Sastranegara Int&apos;l</option>';
+            name_options_str  += '<option value="Ibadan">Ibadan</option>';
+            name_options_str  += '<option value="Ign. Alberto Ongay Int&apos;l">Ign. Alberto Ongay Int&apos;l</option>';
+            name_options_str  += '<option value="Ignacio Agramonte">Ignacio Agramonte</option>';
+            name_options_str  += '<option value="Ilorin Int&apos;l">Ilorin Int&apos;l</option>';
+            name_options_str  += '<option value="Imperial Cty.">Imperial Cty.</option>';
+            name_options_str  += '<option value="Incheon Int&apos;l">Incheon Int&apos;l</option>';
+            name_options_str  += '<option value="Indianapolis Int&apos;l">Indianapolis Int&apos;l</option>';
+            name_options_str  += '<option value="Indira Gandhi Int&apos;l">Indira Gandhi Int&apos;l</option>';
+            name_options_str  += '<option value="Ingeniero Ambrosio L.V. Taravella Int&apos;l">Ingeniero Ambrosio L.V. Taravella Int&apos;l</option>';
+            name_options_str  += '<option value="Inverness">Inverness</option>';
+            name_options_str  += '<option value="Iqaluit">Iqaluit</option>';
+            name_options_str  += '<option value="Irkutsk N.W.">Irkutsk N.W.</option>';
+            name_options_str  += '<option value="Irkutsk S.E.">Irkutsk S.E.</option>';
+            name_options_str  += '<option value="JAGS McCartney Int&apos;l">JAGS McCartney Int&apos;l</option>';
+            name_options_str  += '<option value="Jabalpur">Jabalpur</option>';
+            name_options_str  += '<option value="Jacinto Lara Int&apos;l">Jacinto Lara Int&apos;l</option>';
+            name_options_str  += '<option value="Jackson Int&apos;l">Jackson Int&apos;l</option>';
+            name_options_str  += '<option value="Jacksonville Int&apos;l">Jacksonville Int&apos;l</option>';
+            name_options_str  += '<option value="Jaipur Int&apos;l">Jaipur Int&apos;l</option>';
+            name_options_str  += '<option value="James M. Cox Dayton Int&apos;l">James M. Cox Dayton Int&apos;l</option>';
+            name_options_str  += '<option value="Jammu">Jammu</option>';
+            name_options_str  += '<option value="Jeju Int&apos;l">Jeju Int&apos;l</option>';
+            name_options_str  += '<option value="Jiamusi Dongjiao">Jiamusi Dongjiao</option>';
+            name_options_str  += '<option value="Jodhpur">Jodhpur</option>';
+            name_options_str  += '<option value="John C. Munro Hamilton Int&apos;l">John C. Munro Hamilton Int&apos;l</option>';
+            name_options_str  += '<option value="John F Kennedy Int&apos;l">John F Kennedy Int&apos;l</option>';
+            name_options_str  += '<option value="John G Diefenbaker Int&apos;l">John G Diefenbaker Int&apos;l</option>';
+            name_options_str  += '<option value="John Wayne">John Wayne</option>';
+            name_options_str  += '<option value="Joinville-Lauro C. de Loyola">Joinville-Lauro C. de Loyola</option>';
+            name_options_str  += '<option value="Jomo Kenyatta Int&apos;l">Jomo Kenyatta Int&apos;l</option>';
+            name_options_str  += '<option value="Jorge Chávez">Jorge Chávez</option>';
+            name_options_str  += '<option value="Jose Maria Morelos Y Pavon">Jose Maria Morelos Y Pavon</option>';
+            name_options_str  += '<option value="José Martí Int&apos;l">José Martí Int&apos;l</option>';
+            name_options_str  += '<option value="José María Córdova">José María Córdova</option>';
+            name_options_str  += '<option value="João Paulo II">João Paulo II</option>';
+            name_options_str  += '<option value="Juan Gualberto Gomez">Juan Gualberto Gomez</option>';
+            name_options_str  += '<option value="Juana Azurduy de Padilla Int&apos;l">Juana Azurduy de Padilla Int&apos;l</option>';
+            name_options_str  += '<option value="Juanda Int&apos;l">Juanda Int&apos;l</option>';
+            name_options_str  += '<option value="Julius Nyerere Int&apos;l">Julius Nyerere Int&apos;l</option>';
+            name_options_str  += '<option value="Juneau Int&apos;l">Juneau Int&apos;l</option>';
+            name_options_str  += '<option value="Juscelino Kubitschek Int&apos;l">Juscelino Kubitschek Int&apos;l</option>';
+            name_options_str  += '<option value="Kabul Int&apos;l">Kabul Int&apos;l</option>';
+            name_options_str  += '<option value="Kaduna">Kaduna</option>';
+            name_options_str  += '<option value="Kahului">Kahului</option>';
+            name_options_str  += '<option value="Kamloops">Kamloops</option>';
+            name_options_str  += '<option value="Kamuzu Int&apos;l">Kamuzu Int&apos;l</option>';
+            name_options_str  += '<option value="Kananga">Kananga</option>';
+            name_options_str  += '<option value="Kangerlussuaq">Kangerlussuaq</option>';
+            name_options_str  += '<option value="Kano Mallam Aminu Int&apos;l">Kano Mallam Aminu Int&apos;l</option>';
+            name_options_str  += '<option value="Kanpur">Kanpur</option>';
+            name_options_str  += '<option value="Kansai Int&apos;l">Kansai Int&apos;l</option>';
+            name_options_str  += '<option value="Kansas City Int&apos;l">Kansas City Int&apos;l</option>';
+            name_options_str  += '<option value="Kaohsiung Int&apos;l">Kaohsiung Int&apos;l</option>';
+            name_options_str  += '<option value="Karachi Civil">Karachi Civil</option>';
+            name_options_str  += '<option value="Kashi">Kashi</option>';
+            name_options_str  += '<option value="Katunayake Int&apos;l">Katunayake Int&apos;l</option>';
+            name_options_str  += '<option value="Kazan Int&apos;l">Kazan Int&apos;l</option>';
+            name_options_str  += '<option value="Kenitra Air Base">Kenitra Air Base</option>';
+            name_options_str  += '<option value="Kennedy Space Center">Kennedy Space Center</option>';
+            name_options_str  += '<option value="Kharkov Int&apos;l">Kharkov Int&apos;l</option>';
+            name_options_str  += '<option value="Khartoum">Khartoum</option>';
+            name_options_str  += '<option value="Kiev Zhuliany Int&apos;l">Kiev Zhuliany Int&apos;l</option>';
+            name_options_str  += '<option value="Kigali Int&apos;l">Kigali Int&apos;l</option>';
+            name_options_str  += '<option value="Kilimanjaro Int&apos;l">Kilimanjaro Int&apos;l</option>';
+            name_options_str  += '<option value="Kimhae Int&apos;l">Kimhae Int&apos;l</option>';
+            name_options_str  += '<option value="King Abdul Aziz Int&apos;l">King Abdul Aziz Int&apos;l</option>';
+            name_options_str  += '<option value="King Abdulaziz AB">King Abdulaziz AB</option>';
+            name_options_str  += '<option value="King Khalid Int&apos;l">King Khalid Int&apos;l</option>';
+            name_options_str  += '<option value="Kingsford Smith">Kingsford Smith</option>';
+            name_options_str  += '<option value="Kinshasa N Djili Int&apos;l">Kinshasa N Djili Int&apos;l</option>';
+            name_options_str  += '<option value="Kirkenes Hoybuktmoen">Kirkenes Hoybuktmoen</option>';
+            name_options_str  += '<option value="Kirkwall">Kirkwall</option>';
+            name_options_str  += '<option value="Kiruna_Airport">Kiruna_Airport</option>';
+            name_options_str  += '<option value="Kisangani Bangoka Int&apos;l">Kisangani Bangoka Int&apos;l</option>';
+            name_options_str  += '<option value="Kishinev S.E.">Kishinev S.E.</option>';
+            name_options_str  += '<option value="Kodiak">Kodiak</option>';
+            name_options_str  += '<option value="Koltsovo">Koltsovo</option>';
+            name_options_str  += '<option value="Kona Int&apos;l at Keahole">Kona Int&apos;l at Keahole</option>';
+            name_options_str  += '<option value="Konya">Konya</option>';
+            name_options_str  += '<option value="Kosrae Island">Kosrae Island</option>';
+            name_options_str  += '<option value="Kota">Kota</option>';
+            name_options_str  += '<option value="Kota Kinabalu Int&apos;l">Kota Kinabalu Int&apos;l</option>';
+            name_options_str  += '<option value="Kotoka Int&apos;l">Kotoka Int&apos;l</option>';
+            name_options_str  += '<option value="Kraków-Balice">Kraków-Balice</option>';
+            name_options_str  += '<option value="Kuala Lumpur Int&apos;l">Kuala Lumpur Int&apos;l</option>';
+            name_options_str  += '<option value="Kuching Int&apos;l">Kuching Int&apos;l</option>';
+            name_options_str  += '<option value="Kumasi">Kumasi</option>';
+            name_options_str  += '<option value="Kunming Changshui Int&apos;l">Kunming Changshui Int&apos;l</option>';
+            name_options_str  += '<option value="Kurumoch">Kurumoch</option>';
+            name_options_str  += '<option value="Kuujjuaq">Kuujjuaq</option>';
+            name_options_str  += '<option value="Kuwait Int&apos;l">Kuwait Int&apos;l</option>';
+            name_options_str  += '<option value="La Aurora">La Aurora</option>';
+            name_options_str  += '<option value="La Chinita Int&apos;l">La Chinita Int&apos;l</option>';
+            name_options_str  += '<option value="La Plata">La Plata</option>';
+            name_options_str  += '<option value="La Tontouta Int&apos;l">La Tontouta Int&apos;l</option>';
+            name_options_str  += '<option value="LaGuardia">LaGuardia</option>';
+            name_options_str  += '<option value="Lagos Murtala Muhammed">Lagos Murtala Muhammed</option>';
+            name_options_str  += '<option value="Lakatamia Airbase">Lakatamia Airbase</option>';
+            name_options_str  += '<option value="Lambert St Louis Int&apos;l">Lambert St Louis Int&apos;l</option>';
+            name_options_str  += '<option value="Lanzhou Zhongchuan">Lanzhou Zhongchuan</option>';
+            name_options_str  += '<option value="Laoag Int&apos;l">Laoag Int&apos;l</option>';
+            name_options_str  += '<option value="Laredo Int&apos;l">Laredo Int&apos;l</option>';
+            name_options_str  += '<option value="Leeds Bradford">Leeds Bradford</option>';
+            name_options_str  += '<option value="Leonardo da Vinci Int&apos;l">Leonardo da Vinci Int&apos;l</option>';
+            name_options_str  += '<option value="Lhasa Gonggar">Lhasa Gonggar</option>';
+            name_options_str  += '<option value="Libreville Leon M&apos;ba Int&apos;l">Libreville Leon M&apos;ba Int&apos;l</option>';
+            name_options_str  += '<option value="Lic Benito Juarez Int&apos;l">Lic Benito Juarez Int&apos;l</option>';
+            name_options_str  += '<option value="Lic M Crecencio Rejon Int&apos;l">Lic M Crecencio Rejon Int&apos;l</option>';
+            name_options_str  += '<option value="Lic. Jesús Terán Peredo Int&apos;l">Lic. Jesús Terán Peredo Int&apos;l</option>';
+            name_options_str  += '<option value="Lihue">Lihue</option>';
+            name_options_str  += '<option value="Lille-Lesquin">Lille-Lesquin</option>';
+            name_options_str  += '<option value="Linate">Linate</option>';
+            name_options_str  += '<option value="Lisbon Portela">Lisbon Portela</option>';
+            name_options_str  += '<option value="Liverpool John Lennon">Liverpool John Lennon</option>';
+            name_options_str  += '<option value="Ljubljana">Ljubljana</option>';
+            name_options_str  += '<option value="Logan Int&apos;l">Logan Int&apos;l</option>';
+            name_options_str  += '<option value="Lok Nayak Jaiprakash">Lok Nayak Jaiprakash</option>';
+            name_options_str  += '<option value="Lokpriya G. Bordoloi Int&apos;l">Lokpriya G. Bordoloi Int&apos;l</option>';
+            name_options_str  += '<option value="Lomé Tokoin">Lomé Tokoin</option>';
+            name_options_str  += '<option value="London Gatwick">London Gatwick</option>';
+            name_options_str  += '<option value="London Heathrow">London Heathrow</option>';
+            name_options_str  += '<option value="London Luton">London Luton</option>';
+            name_options_str  += '<option value="Los Angeles Int&apos;l">Los Angeles Int&apos;l</option>';
+            name_options_str  += '<option value="Los Cabos Int&apos;l">Los Cabos Int&apos;l</option>';
+            name_options_str  += '<option value="Los Mochis">Los Mochis</option>';
+            name_options_str  += '<option value="Louis Botha">Louis Botha</option>';
+            name_options_str  += '<option value="Louisville Int&apos;l">Louisville Int&apos;l</option>';
+            name_options_str  += '<option value="Luanda 4 de Fevereiro">Luanda 4 de Fevereiro</option>';
+            name_options_str  += '<option value="Lubumbashi Luano Int&apos;l">Lubumbashi Luano Int&apos;l</option>';
+            name_options_str  += '<option value="Luis Muñoz Marin">Luis Muñoz Marin</option>';
+            name_options_str  += '<option value="Lulea">Lulea</option>';
+            name_options_str  += '<option value="Luqa">Luqa</option>';
+            name_options_str  += '<option value="Lusaka Int&apos;l">Lusaka Int&apos;l</option>';
+            name_options_str  += '<option value="Luxembourg-Findel">Luxembourg-Findel</option>';
+            name_options_str  += '<option value="Luxor">Luxor</option>';
+            name_options_str  += '<option value="Lviv Danylo Halytskyi Int&apos;l">Lviv Danylo Halytskyi Int&apos;l</option>';
+            name_options_str  += '<option value="Lyon-Saint Exupery">Lyon-Saint Exupery</option>';
+            name_options_str  += '<option value="Léopold Sedar Senghor Int&apos;l">Léopold Sedar Senghor Int&apos;l</option>';
+            name_options_str  += '<option value="Macau Int&apos;l">Macau Int&apos;l</option>';
+            name_options_str  += '<option value="Macdonald-Cartier Int&apos;l">Macdonald-Cartier Int&apos;l</option>';
+            name_options_str  += '<option value="Maceio/Zumbi dos Palmares Int&apos;l">Maceio/Zumbi dos Palmares Int&apos;l</option>';
+            name_options_str  += '<option value="Mactan-Cebu Int&apos;l">Mactan-Cebu Int&apos;l</option>';
+            name_options_str  += '<option value="Madeira">Madeira</option>';
+            name_options_str  += '<option value="Madinah Int&apos;l">Madinah Int&apos;l</option>';
+            name_options_str  += '<option value="Madrid Barajas">Madrid Barajas</option>';
+            name_options_str  += '<option value="Madurai">Madurai</option>';
+            name_options_str  += '<option value="Maiduguri Int&apos;l">Maiduguri Int&apos;l</option>';
+            name_options_str  += '<option value="Mais Gate Int&apos;l">Mais Gate Int&apos;l</option>';
+            name_options_str  += '<option value="Male Int&apos;l">Male Int&apos;l</option>';
+            name_options_str  += '<option value="Malpensa">Malpensa</option>';
+            name_options_str  += '<option value="Manchester Int&apos;l">Manchester Int&apos;l</option>';
+            name_options_str  += '<option value="Manchester-Boston Reg.">Manchester-Boston Reg.</option>';
+            name_options_str  += '<option value="Mandalay Int&apos;l">Mandalay Int&apos;l</option>';
+            name_options_str  += '<option value="Mandelieu">Mandelieu</option>';
+            name_options_str  += '<option value="Maputo Int&apos;l">Maputo Int&apos;l</option>';
+            name_options_str  += '<option value="Marechal Cunha Machado Int&apos;l">Marechal Cunha Machado Int&apos;l</option>';
+            name_options_str  += '<option value="Marechal Rondon Int&apos;l">Marechal Rondon Int&apos;l</option>';
+            name_options_str  += '<option value="Mariscal Sucre Int&apos;l">Mariscal Sucre Int&apos;l</option>';
+            name_options_str  += '<option value="Marka Int&apos;l">Marka Int&apos;l</option>';
+            name_options_str  += '<option value="Marrakech-Menara">Marrakech-Menara</option>';
+            name_options_str  += '<option value="Marseille Provence Airport">Marseille Provence Airport</option>';
+            name_options_str  += '<option value="Marshall Islands Int&apos;l">Marshall Islands Int&apos;l</option>';
+            name_options_str  += '<option value="Martín Miguel de Güemes Int">Martín Miguel de Güemes Int</option>';
+            name_options_str  += '<option value="Mashhad">Mashhad</option>';
+            name_options_str  += '<option value="Mataveri Int&apos;l">Mataveri Int&apos;l</option>';
+            name_options_str  += '<option value="Mbuji Mayi">Mbuji Mayi</option>';
+            name_options_str  += '<option value="McNary Field">McNary Field</option>';
+            name_options_str  += '<option value="Mccarran Int&apos;l">Mccarran Int&apos;l</option>';
+            name_options_str  += '<option value="Mcghee Tyson">Mcghee Tyson</option>';
+            name_options_str  += '<option value="Mehrabad Int&apos;l">Mehrabad Int&apos;l</option>';
+            name_options_str  += '<option value="Melbourne Int&apos;l">Melbourne Int&apos;l</option>';
+            name_options_str  += '<option value="Memphis Int&apos;l">Memphis Int&apos;l</option>';
+            name_options_str  += '<option value="Miami Int&apos;l">Miami Int&apos;l</option>';
+            name_options_str  += '<option value="Minangkabau Int&apos;l">Minangkabau Int&apos;l</option>';
+            name_options_str  += '<option value="Mingaladon">Mingaladon</option>';
+            name_options_str  += '<option value="Ministro Pistarini Int&apos;l">Ministro Pistarini Int&apos;l</option>';
+            name_options_str  += '<option value="Minneapolis St. Paul Int&apos;l">Minneapolis St. Paul Int&apos;l</option>';
+            name_options_str  += '<option value="Minot Int&apos;l">Minot Int&apos;l</option>';
+            name_options_str  += '<option value="Minsk Int&apos;l">Minsk Int&apos;l</option>';
+            name_options_str  += '<option value="Mirabel Int&apos;l">Mirabel Int&apos;l</option>';
+            name_options_str  += '<option value="Missoula Int&apos;l">Missoula Int&apos;l</option>';
+            name_options_str  += '<option value="Mohamed Boudiaf Int&apos;l">Mohamed Boudiaf Int&apos;l</option>';
+            name_options_str  += '<option value="Mohamed V Int&apos;l">Mohamed V Int&apos;l</option>';
+            name_options_str  += '<option value="Moi Int&apos;l">Moi Int&apos;l</option>';
+            name_options_str  += '<option value="Montgomery Reg.">Montgomery Reg.</option>';
+            name_options_str  += '<option value="Montréal-Trudeau">Montréal-Trudeau</option>';
+            name_options_str  += '<option value="Moscow Domodedovo Int&apos;l">Moscow Domodedovo Int&apos;l</option>';
+            name_options_str  += '<option value="Moshoeshoe I Int&apos;l">Moshoeshoe I Int&apos;l</option>';
+            name_options_str  += '<option value="Mosul Int&apos;l">Mosul Int&apos;l</option>';
+            name_options_str  += '<option value="Mudanjiang Hailang">Mudanjiang Hailang</option>';
+            name_options_str  += '<option value="Multan">Multan</option>';
+            name_options_str  += '<option value="Mundo Maya Int&apos;l">Mundo Maya Int&apos;l</option>';
+            name_options_str  += '<option value="Munich Freight Terminal">Munich Freight Terminal</option>';
+            name_options_str  += '<option value="Nacional Tobías Bolaños">Nacional Tobías Bolaños</option>';
+            name_options_str  += '<option value="Nadi Int&apos;l">Nadi Int&apos;l</option>';
+            name_options_str  += '<option value="Nagoya">Nagoya</option>';
+            name_options_str  += '<option value="Nanchang Changbei Int&apos;l">Nanchang Changbei Int&apos;l</option>';
+            name_options_str  += '<option value="Nanjing Lukou Int&apos;l">Nanjing Lukou Int&apos;l</option>';
+            name_options_str  += '<option value="Nanning Wuwu Int&apos;l">Nanning Wuwu Int&apos;l</option>';
+            name_options_str  += '<option value="Naples Int&apos;l">Naples Int&apos;l</option>';
+            name_options_str  += '<option value="Narita Int&apos;l">Narita Int&apos;l</option>';
+            name_options_str  += '<option value="Narsarsuaq">Narsarsuaq</option>';
+            name_options_str  += '<option value="Nashville Int&apos;l">Nashville Int&apos;l</option>';
+            name_options_str  += '<option value="Nassau Int&apos;l">Nassau Int&apos;l</option>';
+            name_options_str  += '<option value="Nauru Int&apos;l">Nauru Int&apos;l</option>';
+            name_options_str  += '<option value="Nausori Int&apos;l">Nausori Int&apos;l</option>';
+            name_options_str  += '<option value="Ndjamena">Ndjamena</option>';
+            name_options_str  += '<option value="Netaji Subhash Chandra Bose Int&apos;l">Netaji Subhash Chandra Bose Int&apos;l</option>';
+            name_options_str  += '<option value="New Orleans Int&apos;l">New Orleans Int&apos;l</option>';
+            name_options_str  += '<option value="Newark Int&apos;l">Newark Int&apos;l</option>';
+            name_options_str  += '<option value="Newcastle Int&apos;l">Newcastle Int&apos;l</option>';
+            name_options_str  += '<option value="Niamey">Niamey</option>';
+            name_options_str  += '<option value="Ningbo Lishe Int&apos;l">Ningbo Lishe Int&apos;l</option>';
+            name_options_str  += '<option value="Ninoy Aquino Int&apos;l">Ninoy Aquino Int&apos;l</option>';
+            name_options_str  += '<option value="Niue Int&apos;l">Niue Int&apos;l</option>';
+            name_options_str  += '<option value="Nizhny Novgorod Int&apos;l">Nizhny Novgorod Int&apos;l</option>';
+            name_options_str  += '<option value="Nogales Int&apos;l">Nogales Int&apos;l</option>';
+            name_options_str  += '<option value="Noi Bai">Noi Bai</option>';
+            name_options_str  += '<option value="Nome">Nome</option>';
+            name_options_str  += '<option value="Norfolk Int&apos;l">Norfolk Int&apos;l</option>';
+            name_options_str  += '<option value="Norfolk Island">Norfolk Island</option>';
+            name_options_str  += '<option value="Norman Manley Int&apos;l">Norman Manley Int&apos;l</option>';
+            name_options_str  += '<option value="Norrköping Airport">Norrköping Airport</option>';
+            name_options_str  += '<option value="North Bay/Jack Garland">North Bay/Jack Garland</option>';
+            name_options_str  += '<option value="Nouadhibou Int&apos;l">Nouadhibou Int&apos;l</option>';
+            name_options_str  += '<option value="Nouakchott Int&apos;l">Nouakchott Int&apos;l</option>';
+            name_options_str  += '<option value="Nova Lisboa">Nova Lisboa</option>';
+            name_options_str  += '<option value="Novosibirsk Tolmachev">Novosibirsk Tolmachev</option>';
+            name_options_str  += '<option value="Nueva Hespérides Int&apos;l">Nueva Hespérides Int&apos;l</option>';
+            name_options_str  += '<option value="Nurnberg">Nurnberg</option>';
+            name_options_str  += '<option value="OR Tambo Int&apos;l">OR Tambo Int&apos;l</option>';
+            name_options_str  += '<option value="Oakland Int&apos;l">Oakland Int&apos;l</option>';
+            name_options_str  += '<option value="Odessa Int&apos;l">Odessa Int&apos;l</option>';
+            name_options_str  += '<option value="Okadama">Okadama</option>';
+            name_options_str  += '<option value="Okecie Int&apos;l">Okecie Int&apos;l</option>';
+            name_options_str  += '<option value="Omsk Tsentralny">Omsk Tsentralny</option>';
+            name_options_str  += '<option value="Ontario Int&apos;l">Ontario Int&apos;l</option>';
+            name_options_str  += '<option value="Oran Es Senia">Oran Es Senia</option>';
+            name_options_str  += '<option value="Orio Al Serio">Orio Al Serio</option>';
+            name_options_str  += '<option value="Orlando Int&apos;l">Orlando Int&apos;l</option>';
+            name_options_str  += '<option value="Osaka Int&apos;l">Osaka Int&apos;l</option>';
+            name_options_str  += '<option value="Oslo Gardermoen">Oslo Gardermoen</option>';
+            name_options_str  += '<option value="Osvaldo Vieira Int&apos;l">Osvaldo Vieira Int&apos;l</option>';
+            name_options_str  += '<option value="Ouagadougou">Ouagadougou</option>';
+            name_options_str  += '<option value="Oulu">Oulu</option>';
+            name_options_str  += '<option value="Owen Roberts Int&apos;l">Owen Roberts Int&apos;l</option>';
+            name_options_str  += '<option value="Pago Pago Int&apos;l">Pago Pago Int&apos;l</option>';
+            name_options_str  += '<option value="Palanga Int&apos;l">Palanga Int&apos;l</option>';
+            name_options_str  += '<option value="Palermo">Palermo</option>';
+            name_options_str  += '<option value="Palm Beach Int&apos;l">Palm Beach Int&apos;l</option>';
+            name_options_str  += '<option value="Palma de Mallorca">Palma de Mallorca</option>';
+            name_options_str  += '<option value="Palmerston N. Int&apos;l">Palmerston N. Int&apos;l</option>';
+            name_options_str  += '<option value="Palonegro">Palonegro</option>';
+            name_options_str  += '<option value="Paphos Int&apos;l">Paphos Int&apos;l</option>';
+            name_options_str  += '<option value="Paris Orly">Paris Orly</option>';
+            name_options_str  += '<option value="Paysandu">Paysandu</option>';
+            name_options_str  += '<option value="Peace River">Peace River</option>';
+            name_options_str  += '<option value="Penang Int&apos;l">Penang Int&apos;l</option>';
+            name_options_str  += '<option value="Pengel Int&apos;l">Pengel Int&apos;l</option>';
+            name_options_str  += '<option value="Perth Int&apos;l">Perth Int&apos;l</option>';
+            name_options_str  += '<option value="Philadelphia Int&apos;l">Philadelphia Int&apos;l</option>';
+            name_options_str  += '<option value="Philip S. W. Goldson Int&apos;l">Philip S. W. Goldson Int&apos;l</option>';
+            name_options_str  += '<option value="Phuket Int&apos;l">Phuket Int&apos;l</option>';
+            name_options_str  += '<option value="Pierre Regional">Pierre Regional</option>';
+            name_options_str  += '<option value="Piloto Civil Norberto Fernandez Int&apos;l">Piloto Civil Norberto Fernandez Int&apos;l</option>';
+            name_options_str  += '<option value="Pinto Martins Int&apos;l">Pinto Martins Int&apos;l</option>';
+            name_options_str  += '<option value="Pisa Galileo Galilei Int&apos;l">Pisa Galileo Galilei Int&apos;l</option>';
+            name_options_str  += '<option value="Plan de Guadalupe">Plan de Guadalupe</option>';
+            name_options_str  += '<option value="Playa de Oro Int&apos;l">Playa de Oro Int&apos;l</option>';
+            name_options_str  += '<option value="Pochentong">Pochentong</option>';
+            name_options_str  += '<option value="Podgorica">Podgorica</option>';
+            name_options_str  += '<option value="Pohnpei Int&apos;l">Pohnpei Int&apos;l</option>';
+            name_options_str  += '<option value="Point Salines Int&apos;l">Point Salines Int&apos;l</option>';
+            name_options_str  += '<option value="Polokwane Int&apos;l">Polokwane Int&apos;l</option>';
+            name_options_str  += '<option value="Polonia Int&apos;l">Polonia Int&apos;l</option>';
+            name_options_str  += '<option value="Ponciano Arriaga Int&apos;l">Ponciano Arriaga Int&apos;l</option>';
+            name_options_str  += '<option value="Ponta Porã Int&apos;l">Ponta Porã Int&apos;l</option>';
+            name_options_str  += '<option value="Port Columbus Int&apos;l">Port Columbus Int&apos;l</option>';
+            name_options_str  += '<option value="Port Harcourt Int&apos;l">Port Harcourt Int&apos;l</option>';
+            name_options_str  += '<option value="Port Hedland Int&apos;l">Port Hedland Int&apos;l</option>';
+            name_options_str  += '<option value="Port Moresby Int&apos;l">Port Moresby Int&apos;l</option>';
+            name_options_str  += '<option value="Port Sudan">Port Sudan</option>';
+            name_options_str  += '<option value="Port Sudan New Int&apos;l">Port Sudan New Int&apos;l</option>';
+            name_options_str  += '<option value="Portland Int&apos;l">Portland Int&apos;l</option>';
+            name_options_str  += '<option value="Praia Int&apos;l">Praia Int&apos;l</option>';
+            name_options_str  += '<option value="Presidente Castro Pinto Int&apos;l">Presidente Castro Pinto Int&apos;l</option>';
+            name_options_str  += '<option value="Presidente Nicolau Lobato Int&apos;l">Presidente Nicolau Lobato Int&apos;l</option>';
+            name_options_str  += '<option value="Prince George">Prince George</option>';
+            name_options_str  += '<option value="Prince Rupert">Prince Rupert</option>';
+            name_options_str  += '<option value="Prince Said Ibrahim Int&apos;l">Prince Said Ibrahim Int&apos;l</option>';
+            name_options_str  += '<option value="Princess Juliana Int&apos;l">Princess Juliana Int&apos;l</option>';
+            name_options_str  += '<option value="Pristina">Pristina</option>';
+            name_options_str  += '<option value="Puebla">Puebla</option>';
+            name_options_str  += '<option value="Pulkovo 2">Pulkovo 2</option>';
+            name_options_str  += '<option value="Pune">Pune</option>';
+            name_options_str  += '<option value="Punta Cana">Punta Cana</option>';
+            name_options_str  += '<option value="Qingdao Liuting Int&apos;l">Qingdao Liuting Int&apos;l</option>';
+            name_options_str  += '<option value="Queen Alia Int&apos;l">Queen Alia Int&apos;l</option>';
+            name_options_str  += '<option value="Queen Beatrix Int&apos;l">Queen Beatrix Int&apos;l</option>';
+            name_options_str  += '<option value="Queretaro Int&apos;l">Queretaro Int&apos;l</option>';
+            name_options_str  += '<option value="Quetta Int&apos;l">Quetta Int&apos;l</option>';
+            name_options_str  += '<option value="Quetzalcoatl Int&apos;l">Quetzalcoatl Int&apos;l</option>';
+            name_options_str  += '<option value="Québec">Québec</option>';
+            name_options_str  += '<option value="Radin Inten II">Radin Inten II</option>';
+            name_options_str  += '<option value="Rafael Nunez">Rafael Nunez</option>';
+            name_options_str  += '<option value="Raipur">Raipur</option>';
+            name_options_str  += '<option value="Raja Sansi Int&apos;l">Raja Sansi Int&apos;l</option>';
+            name_options_str  += '<option value="Rajiv Gandhi Int&apos;l">Rajiv Gandhi Int&apos;l</option>';
+            name_options_str  += '<option value="Rajkot">Rajkot</option>';
+            name_options_str  += '<option value="Ramón Villeda Morales Int&apos;l">Ramón Villeda Morales Int&apos;l</option>';
+            name_options_str  += '<option value="Rarotonga Int&apos;l">Rarotonga Int&apos;l</option>';
+            name_options_str  += '<option value="Regina">Regina</option>';
+            name_options_str  += '<option value="Reno-Tahoe Int&apos;l">Reno-Tahoe Int&apos;l</option>';
+            name_options_str  += '<option value="Repulse Bay">Repulse Bay</option>';
+            name_options_str  += '<option value="Resolute Bay">Resolute Bay</option>';
+            name_options_str  += '<option value="Reykjavik Air Terminal">Reykjavik Air Terminal</option>';
+            name_options_str  += '<option value="Richmond Int&apos;l">Richmond Int&apos;l</option>';
+            name_options_str  += '<option value="Riga">Riga</option>';
+            name_options_str  += '<option value="Rio de Janeiro-Antonio Carlos Jobim Int&apos;l">Rio de Janeiro-Antonio Carlos Jobim Int&apos;l</option>';
+            name_options_str  += '<option value="Robert L. Bradshaw Int&apos;l">Robert L. Bradshaw Int&apos;l</option>';
+            name_options_str  += '<option value="Roberts Int&apos;l">Roberts Int&apos;l</option>';
+            name_options_str  += '<option value="Rockhampton">Rockhampton</option>';
+            name_options_str  += '<option value="Rodríguez Ballón Int&apos;l">Rodríguez Ballón Int&apos;l</option>';
+            name_options_str  += '<option value="Roman Tmetuchl Int&apos;l">Roman Tmetuchl Int&apos;l</option>';
+            name_options_str  += '<option value="Rosario – Islas Malvinas Int&apos;l">Rosario – Islas Malvinas Int&apos;l</option>';
+            name_options_str  += '<option value="Rostov N.">Rostov N.</option>';
+            name_options_str  += '<option value="Rostov S.W.">Rostov S.W.</option>';
+            name_options_str  += '<option value="Rostov-on-Don">Rostov-on-Don</option>';
+            name_options_str  += '<option value="Rota Int&apos;l">Rota Int&apos;l</option>';
+            name_options_str  += '<option value="Rotterdam The Hague">Rotterdam The Hague</option>';
+            name_options_str  += '<option value="Rovaniemi">Rovaniemi</option>';
+            name_options_str  += '<option value="Ruzyn">Ruzyn</option>';
+            name_options_str  += '<option value="Sabiha Gökçen Havaalani">Sabiha Gökçen Havaalani</option>';
+            name_options_str  += '<option value="Sacramento Int&apos;l">Sacramento Int&apos;l</option>';
+            name_options_str  += '<option value="Sadiq Abubakar III">Sadiq Abubakar III</option>';
+            name_options_str  += '<option value="Sahnewal">Sahnewal</option>';
+            name_options_str  += '<option value="Saint John">Saint John</option>';
+            name_options_str  += '<option value="Saipan Int&apos;l">Saipan Int&apos;l</option>';
+            name_options_str  += '<option value="Saiss">Saiss</option>';
+            name_options_str  += '<option value="Salgado Filho Int&apos;l">Salgado Filho Int&apos;l</option>';
+            name_options_str  += '<option value="Salt Lake City Int&apos;l">Salt Lake City Int&apos;l</option>';
+            name_options_str  += '<option value="San Antonio Int&apos;l">San Antonio Int&apos;l</option>';
+            name_options_str  += '<option value="San Diego Int&apos;l">San Diego Int&apos;l</option>';
+            name_options_str  += '<option value="San Francisco Int&apos;l">San Francisco Int&apos;l</option>';
+            name_options_str  += '<option value="San Jose Int&apos;l">San Jose Int&apos;l</option>';
+            name_options_str  += '<option value="Sanaa Int&apos;l">Sanaa Int&apos;l</option>';
+            name_options_str  += '<option value="Sangster Int&apos;l">Sangster Int&apos;l</option>';
+            name_options_str  += '<option value="Santa Barbara Muni.">Santa Barbara Muni.</option>';
+            name_options_str  += '<option value="Santa Bernardina Int&apos;l">Santa Bernardina Int&apos;l</option>';
+            name_options_str  += '<option value="Santa Genoveva">Santa Genoveva</option>';
+            name_options_str  += '<option value="Santo Pekoa Int&apos;l">Santo Pekoa Int&apos;l</option>';
+            name_options_str  += '<option value="Santos Air Force Base">Santos Air Force Base</option>';
+            name_options_str  += '<option value="Sanya Phoenix Int&apos;l">Sanya Phoenix Int&apos;l</option>';
+            name_options_str  += '<option value="Sarajevo">Sarajevo</option>';
+            name_options_str  += '<option value="Saratov">Saratov</option>';
+            name_options_str  += '<option value="Sardar Vallabhbhai Patel Int&apos;l">Sardar Vallabhbhai Patel Int&apos;l</option>';
+            name_options_str  += '<option value="Sault Ste Marie">Sault Ste Marie</option>';
+            name_options_str  += '<option value="Savannah Int&apos;l">Savannah Int&apos;l</option>';
+            name_options_str  += '<option value="Schiphol">Schiphol</option>';
+            name_options_str  += '<option value="Scholes Int&apos;l">Scholes Int&apos;l</option>';
+            name_options_str  += '<option value="Seattle-Tacoma Int&apos;l">Seattle-Tacoma Int&apos;l</option>';
+            name_options_str  += '<option value="Seeb Int&apos;l">Seeb Int&apos;l</option>';
+            name_options_str  += '<option value="Sendai">Sendai</option>';
+            name_options_str  += '<option value="Severomorsk-3 (Murmansk N.E.)">Severomorsk-3 (Murmansk N.E.)</option>';
+            name_options_str  += '<option value="Seychelles Int&apos;l">Seychelles Int&apos;l</option>';
+            name_options_str  += '<option value="Shah Makhdum">Shah Makhdum</option>';
+            name_options_str  += '<option value="Shahid Ashrafi Esfahani">Shahid Ashrafi Esfahani</option>';
+            name_options_str  += '<option value="Shanghai Pudong Int&apos;l">Shanghai Pudong Int&apos;l</option>';
+            name_options_str  += '<option value="Shannon">Shannon</option>';
+            name_options_str  += '<option value="Sharjah Int&apos;l">Sharjah Int&apos;l</option>';
+            name_options_str  += '<option value="Sharm el-Sheikh Int&apos;l">Sharm el-Sheikh Int&apos;l</option>';
+            name_options_str  += '<option value="Shenyang Taoxian Int&apos;l">Shenyang Taoxian Int&apos;l</option>';
+            name_options_str  += '<option value="Shenzhen Bao&apos;an Int&apos;l">Shenzhen Bao&apos;an Int&apos;l</option>';
+            name_options_str  += '<option value="Sheremtyevo">Sheremtyevo</option>';
+            name_options_str  += '<option value="Shijiazhuang Zhengding Int&apos;l">Shijiazhuang Zhengding Int&apos;l</option>';
+            name_options_str  += '<option value="Shiraz Int&apos;l">Shiraz Int&apos;l</option>';
+            name_options_str  += '<option value="Shreveport Reg.">Shreveport Reg.</option>';
+            name_options_str  += '<option value="Siem Reap Int&apos;l">Siem Reap Int&apos;l</option>';
+            name_options_str  += '<option value="Silvio Pettirossi Int&apos;l">Silvio Pettirossi Int&apos;l</option>';
+            name_options_str  += '<option value="Simferopol Int&apos;l">Simferopol Int&apos;l</option>';
+            name_options_str  += '<option value="Simon Bolivar Int&apos;l">Simon Bolivar Int&apos;l</option>';
+            name_options_str  += '<option value="Simpang Tiga">Simpang Tiga</option>';
+            name_options_str  += '<option value="Simón Bolivar Int&apos;l">Simón Bolivar Int&apos;l</option>';
+            name_options_str  += '<option value="Singapore Changi">Singapore Changi</option>';
+            name_options_str  += '<option value="Sioux Falls Reg.">Sioux Falls Reg.</option>';
+            name_options_str  += '<option value="Sir Seewoosagur Ramgoolam Int&apos;l">Sir Seewoosagur Ramgoolam Int&apos;l</option>';
+            name_options_str  += '<option value="Sir Seretse Khama Int&apos;l">Sir Seretse Khama Int&apos;l</option>';
+            name_options_str  += '<option value="Sitka Rocky Gutierrez">Sitka Rocky Gutierrez</option>';
+            name_options_str  += '<option value="Skopje">Skopje</option>';
+            name_options_str  += '<option value="Sky Harbor Int&apos;l">Sky Harbor Int&apos;l</option>';
+            name_options_str  += '<option value="Soekarno-Hatta Int&apos;l">Soekarno-Hatta Int&apos;l</option>';
+            name_options_str  += '<option value="Solapur">Solapur</option>';
+            name_options_str  += '<option value="Someseni">Someseni</option>';
+            name_options_str  += '<option value="Sonari">Sonari</option>';
+            name_options_str  += '<option value="Southwest Florida Int&apos;l">Southwest Florida Int&apos;l</option>';
+            name_options_str  += '<option value="Spokane Int&apos;l">Spokane Int&apos;l</option>';
+            name_options_str  += '<option value="Springfield Reg.">Springfield Reg.</option>';
+            name_options_str  += '<option value="Srinagar">Srinagar</option>';
+            name_options_str  += '<option value="St Gatien">St Gatien</option>';
+            name_options_str  += '<option value="St John&apos;s Int&apos;l">St John&apos;s Int&apos;l</option>';
+            name_options_str  += '<option value="Stavanger Sola">Stavanger Sola</option>';
+            name_options_str  += '<option value="Stockholm-Skavsta">Stockholm-Skavsta</option>';
+            name_options_str  += '<option value="Strasbourg">Strasbourg</option>';
+            name_options_str  += '<option value="Stuttgart">Stuttgart</option>';
+            name_options_str  += '<option value="Sudbury">Sudbury</option>';
+            name_options_str  += '<option value="Sultan Hasanuddin Int&apos;l">Sultan Hasanuddin Int&apos;l</option>';
+            name_options_str  += '<option value="Sultan Mahmud Badaruddin II">Sultan Mahmud Badaruddin II</option>';
+            name_options_str  += '<option value="Sumburgh">Sumburgh</option>';
+            name_options_str  += '<option value="Sunan">Sunan</option>';
+            name_options_str  += '<option value="Sunchon">Sunchon</option>';
+            name_options_str  += '<option value="Surat">Surat</option>';
+            name_options_str  += '<option value="Surcin">Surcin</option>';
+            name_options_str  += '<option value="Surgut">Surgut</option>';
+            name_options_str  += '<option value="Suvarnabhumi Airport">Suvarnabhumi Airport</option>';
+            name_options_str  += '<option value="Svalbard Longyear">Svalbard Longyear</option>';
+            name_options_str  += '<option value="Sydney/J.A. Douglas McCurdy">Sydney/J.A. Douglas McCurdy</option>';
+            name_options_str  += '<option value="Syracuse Hancock Int&apos;l">Syracuse Hancock Int&apos;l</option>';
+            name_options_str  += '<option value="São Paulo-Guarulhos Int&apos;l">São Paulo-Guarulhos Int&apos;l</option>';
+            name_options_str  += '<option value="São Tomé Salazar">São Tomé Salazar</option>';
+            name_options_str  += '<option value="T.F. Green">T.F. Green</option>';
+            name_options_str  += '<option value="Ta&apos;izz Int&apos;l">Ta&apos;izz Int&apos;l</option>';
+            name_options_str  += '<option value="Taba Int&apos;l">Taba Int&apos;l</option>';
+            name_options_str  += '<option value="Tabatinga Int&apos;l">Tabatinga Int&apos;l</option>';
+            name_options_str  += '<option value="Tabriz">Tabriz</option>';
+            name_options_str  += '<option value="Tahiti Faa&apos;a Int&apos;l">Tahiti Faa&apos;a Int&apos;l</option>';
+            name_options_str  += '<option value="Taichung">Taichung</option>';
+            name_options_str  += '<option value="Tainan">Tainan</option>';
+            name_options_str  += '<option value="Taiyuan Wusu Int&apos;l">Taiyuan Wusu Int&apos;l</option>';
+            name_options_str  += '<option value="Tallahassee Reg.">Tallahassee Reg.</option>';
+            name_options_str  += '<option value="Tampa Int&apos;l">Tampa Int&apos;l</option>';
+            name_options_str  += '<option value="Tan Son Nhat">Tan Son Nhat</option>';
+            name_options_str  += '<option value="Tancredo Neves Int&apos;l">Tancredo Neves Int&apos;l</option>';
+            name_options_str  += '<option value="Tangier Ibn Battouta">Tangier Ibn Battouta</option>';
+            name_options_str  += '<option value="Taoyuan">Taoyuan</option>';
+            name_options_str  += '<option value="Tapachula Int&apos;l">Tapachula Int&apos;l</option>';
+            name_options_str  += '<option value="Tashkent Int&apos;l">Tashkent Int&apos;l</option>';
+            name_options_str  += '<option value="Tbilisi Int&apos;l">Tbilisi Int&apos;l</option>';
+            name_options_str  += '<option value="Tenerife N.">Tenerife N.</option>';
+            name_options_str  += '<option value="Teniente Gen. Benjamin Matienzo Int&apos;l">Teniente Gen. Benjamin Matienzo Int&apos;l</option>';
+            name_options_str  += '<option value="Teniente Luis Candelaria Int&apos;l">Teniente Luis Candelaria Int&apos;l</option>';
+            name_options_str  += '<option value="Teresina-Senador Petronio Portella">Teresina-Senador Petronio Portella</option>';
+            name_options_str  += '<option value="Terrance B. Lettsome Int&apos;l">Terrance B. Lettsome Int&apos;l</option>';
+            name_options_str  += '<option value="Thessaloniki">Thessaloniki</option>';
+            name_options_str  += '<option value="Thompson">Thompson</option>';
+            name_options_str  += '<option value="Thunder Bay Int&apos;l">Thunder Bay Int&apos;l</option>';
+            name_options_str  += '<option value="Tianjin Binhai Int&apos;l">Tianjin Binhai Int&apos;l</option>';
+            name_options_str  += '<option value="Timmins">Timmins</option>';
+            name_options_str  += '<option value="Tirane Rinas">Tirane Rinas</option>';
+            name_options_str  += '<option value="Tiruchirappalli">Tiruchirappalli</option>';
+            name_options_str  += '<option value="Tocumen Int&apos;l">Tocumen Int&apos;l</option>';
+            name_options_str  += '<option value="Tokyo Int&apos;l">Tokyo Int&apos;l</option>';
+            name_options_str  += '<option value="Toncontin Int&apos;l">Toncontin Int&apos;l</option>';
+            name_options_str  += '<option value="Toronto-Pearson Int&apos;l">Toronto-Pearson Int&apos;l</option>';
+            name_options_str  += '<option value="Torreon Int&apos;l">Torreon Int&apos;l</option>';
+            name_options_str  += '<option value="Toulouse-Blagnac">Toulouse-Blagnac</option>';
+            name_options_str  += '<option value="Townsville">Townsville</option>';
+            name_options_str  += '<option value="Triad Int&apos;l">Triad Int&apos;l</option>';
+            name_options_str  += '<option value="Tribhuvan Int&apos;l">Tribhuvan Int&apos;l</option>';
+            name_options_str  += '<option value="Tripoli Int&apos;l">Tripoli Int&apos;l</option>';
+            name_options_str  += '<option value="Trivandrum Int&apos;l">Trivandrum Int&apos;l</option>';
+            name_options_str  += '<option value="Tromsø Langnes">Tromsø Langnes</option>';
+            name_options_str  += '<option value="Trondheim Vaernes">Trondheim Vaernes</option>';
+            name_options_str  += '<option value="Tucson Int&apos;l">Tucson Int&apos;l</option>';
+            name_options_str  += '<option value="Tulsa Int&apos;l">Tulsa Int&apos;l</option>';
+            name_options_str  += '<option value="Turbat Int&apos;l">Turbat Int&apos;l</option>';
+            name_options_str  += '<option value="Turin Int&apos;l">Turin Int&apos;l</option>';
+            name_options_str  += '<option value="U-Tapao">U-Tapao</option>';
+            name_options_str  += '<option value="Ufa Int&apos;l">Ufa Int&apos;l</option>';
+            name_options_str  += '<option value="Ulemiste">Ulemiste</option>';
+            name_options_str  += '<option value="Ulsan">Ulsan</option>';
+            name_options_str  += '<option value="V.C. Bird Int&apos;l">V.C. Bird Int&apos;l</option>';
+            name_options_str  += '<option value="Vadodara">Vadodara</option>';
+            name_options_str  += '<option value="Val de Caes Int&apos;l">Val de Caes Int&apos;l</option>';
+            name_options_str  += '<option value="Valencia">Valencia</option>';
+            name_options_str  += '<option value="Vancouver Int&apos;l">Vancouver Int&apos;l</option>';
+            name_options_str  += '<option value="Varanasi">Varanasi</option>';
+            name_options_str  += '<option value="Vasilyevka">Vasilyevka</option>';
+            name_options_str  += '<option value="Vava&apos;u Int&apos;l">Vava&apos;u Int&apos;l</option>';
+            name_options_str  += '<option value="Velazco Astete Int&apos;l">Velazco Astete Int&apos;l</option>';
+            name_options_str  += '<option value="Venice Marco Polo">Venice Marco Polo</option>';
+            name_options_str  += '<option value="Venustiano Carranza Int&apos;l">Venustiano Carranza Int&apos;l</option>';
+            name_options_str  += '<option value="Victoria Falls">Victoria Falls</option>';
+            name_options_str  += '<option value="Victoria Int&apos;l">Victoria Int&apos;l</option>';
+            name_options_str  += '<option value="Vienna Schwechat Int&apos;l">Vienna Schwechat Int&apos;l</option>';
+            name_options_str  += '<option value="Vientiane">Vientiane</option>';
+            name_options_str  += '<option value="Vijaywada">Vijaywada</option>';
+            name_options_str  += '<option value="Villahermosa">Villahermosa</option>';
+            name_options_str  += '<option value="Vilnius">Vilnius</option>';
+            name_options_str  += '<option value="Viracopos-Campinas Int&apos;l">Viracopos-Campinas Int&apos;l</option>';
+            name_options_str  += '<option value="Viru Viru Int&apos;l">Viru Viru Int&apos;l</option>';
+            name_options_str  += '<option value="Vishakapatnam">Vishakapatnam</option>';
+            name_options_str  += '<option value="Viña del Mar">Viña del Mar</option>';
+            name_options_str  += '<option value="Vladivostok Int&apos;l">Vladivostok Int&apos;l</option>';
+            name_options_str  += '<option value="Voloskoye">Voloskoye</option>';
+            name_options_str  += '<option value="Voronezh-Chertovitskoye">Voronezh-Chertovitskoye</option>';
+            name_options_str  += '<option value="Vrazhdebna">Vrazhdebna</option>';
+            name_options_str  += '<option value="Vágar">Vágar</option>';
+            name_options_str  += '<option value="Wabush">Wabush</option>';
+            name_options_str  += '<option value="Wang-Chia Tun Airbase">Wang-Chia Tun Airbase</option>';
+            name_options_str  += '<option value="Washington Nat&apos;l">Washington Nat&apos;l</option>';
+            name_options_str  += '<option value="Wellington Int&apos;l">Wellington Int&apos;l</option>';
+            name_options_str  += '<option value="Wewak Int&apos;l">Wewak Int&apos;l</option>';
+            name_options_str  += '<option value="Whitehorse Int&apos;l">Whitehorse Int&apos;l</option>';
+            name_options_str  += '<option value="Wiley Post Will Rogers Mem.">Wiley Post Will Rogers Mem.</option>';
+            name_options_str  += '<option value="Will Rogers">Will Rogers</option>';
+            name_options_str  += '<option value="Wilmington Int&apos;l">Wilmington Int&apos;l</option>';
+            name_options_str  += '<option value="Windhoek Hosea Kutako Int&apos;l">Windhoek Hosea Kutako Int&apos;l</option>';
+            name_options_str  += '<option value="Windsor">Windsor</option>';
+            name_options_str  += '<option value="Winnipeg Int&apos;l">Winnipeg Int&apos;l</option>';
+            name_options_str  += '<option value="Xiamen Gaoqi Int&apos;l">Xiamen Gaoqi Int&apos;l</option>';
+            name_options_str  += '<option value="Xoxocotlán Int&apos;l">Xoxocotlán Int&apos;l</option>';
+            name_options_str  += '<option value="Yangyang Int&apos;l">Yangyang Int&apos;l</option>';
+            name_options_str  += '<option value="Yantai">Yantai</option>';
+            name_options_str  += '<option value="Yaoundé Nsimalen Int&apos;l">Yaoundé Nsimalen Int&apos;l</option>';
+            name_options_str  += '<option value="Yap Int&apos;l">Yap Int&apos;l</option>';
+            name_options_str  += '<option value="Yeager">Yeager</option>';
+            name_options_str  += '<option value="Yellowknife">Yellowknife</option>';
+            name_options_str  += '<option value="Yenisehir">Yenisehir</option>';
+            name_options_str  += '<option value="Yohannes Iv Int&apos;l">Yohannes Iv Int&apos;l</option>';
+            name_options_str  += '<option value="Yundum Int&apos;l">Yundum Int&apos;l</option>';
+            name_options_str  += '<option value="Zagreb">Zagreb</option>';
+            name_options_str  += '<option value="Zahedan Int&apos;l">Zahedan Int&apos;l</option>';
+            name_options_str  += '<option value="Zamboanga Int&apos;l">Zamboanga Int&apos;l</option>';
+            name_options_str  += '<option value="Zanzibar">Zanzibar</option>';
+            name_options_str  += '<option value="Zaporozhye Int&apos;l">Zaporozhye Int&apos;l</option>';
+            name_options_str  += '<option value="Zaria">Zaria</option>';
+            name_options_str  += '<option value="Zhengzhou Xinzheng Int&apos;l">Zhengzhou Xinzheng Int&apos;l</option>';
+            name_options_str  += '<option value="Zia Int&apos;l Dhaka">Zia Int&apos;l Dhaka</option>';
+            name_options_str  += '<option value="Zim Valencia">Zim Valencia</option>';
+            name_options_str  += '<option value="Zurich Int&apos;l">Zurich Int&apos;l</option>';
+            name_options_str  += '<option value="Zvartnots Int&apos;l">Zvartnots Int&apos;l</option>';
+            name_options_str  += '<option value="Ürümqi Diwopu Int&apos;l">Ürümqi Diwopu Int&apos;l</option>';
+            name_options_str  += '<option value="Łódź Władysław Reymont">Łódź Władysław Reymont</option>';
+            name_options_str  += '<option value="Şakirpaşa">Şakirpaşa</option>';
+            name_options_str  += '<option value="Šiauliai Int&apos;l">Šiauliai Int&apos;l</option>';
+            sel_name.innerHTML = name_options_str;
+            div_name.appendChild(sel_name);
+            var lab_name = document.createElement('div');
+            lab_name.innerHTML = 'name';
+            lab_name.className = 'filterlabel';
+            div_name.appendChild(lab_name);
+            var reset_name = document.createElement('div');
+            reset_name.innerHTML = 'clear filter';
+            reset_name.className = 'filterlabel';
+            reset_name.onclick = function() {
+                var options = document.getElementById("sel_name").options;
+                for (var i=0; i < options.length; i++) {
+                    options[i].selected = false;
+                }
+                filterFunc();
+            };
+            div_name.appendChild(reset_name);
         </script>
     </body>
 </html>
